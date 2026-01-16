@@ -11,36 +11,33 @@ model Admin {
   name      String?
   email     String   @unique
   password  String
-  posts     Post[]   @relation("AdminPosts")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  posts     Post[]   @relation("AdminPosts")
 }
 
 model Category {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
-  posts       Post[]   @relation("CategoryPosts")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  posts       Post[]   @relation("CategoryPosts")
 }
 
 model Post {
-  id          String     @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   content     String?
-  mediaType   MediaType  @default(IMAGE)
+  mediaType   MediaType @default(IMAGE)
   mediaUrl    String?
-  
   categoryId  String?
-  category    Category?  @relation("CategoryPosts", fields: [categoryId], references: [id], onDelete: SetNull)
-  
   adminId     String
-  admin       Admin      @relation("AdminPosts", fields: [adminId], references: [id], onDelete: Cascade)
-  
-  publishedAt DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  isPublished Boolean    @default(true)
+  publishedAt DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isPublished Boolean   @default(true)
+  admin       Admin     @relation("AdminPosts", fields: [adminId], references: [id], onDelete: Cascade)
+  category    Category? @relation("CategoryPosts", fields: [categoryId], references: [id])
 
   @@index([isPublished, publishedAt])
 }
