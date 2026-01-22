@@ -29,29 +29,32 @@ export class PostRepository implements IPostRepository {
     return this.mapper.toEntity(post);
   }
   async delete(id: string): Promise<void> {
-     await this.prisma.post.delete({ where: { id } });
+    await this.prisma.post.delete({ where: { id } });
   }
   async findAll(
     limit: number,
     page: number,
   ): Promise<PaginatedResponseRepository<Post>> {
-    const skip = (page - 1) * limit;
+    const safeLimit = Math.max(1, limit);
+    const safePage = Math.max(1, page);
+    const skip = (safePage - 1) * safeLimit;
     const [posts, total] = await Promise.all([
       this.prisma.post.findMany({
         skip: skip,
-        take: limit,
+        take: safeLimit,
         orderBy: { publishedAt: 'desc' },
         include: { category: true },
       }),
       this.prisma.post.count(),
     ]);
-    const allPosts = posts.map((prod) => this.mapper.toEntity(prod));
+    // Mapping vers l'entité de domaine
+    const allPosts = posts.map((post) => this.mapper.toEntity(post));
     return {
       data: allPosts,
       total,
-      totalPages: Math.ceil(total / limit),
-      page,
-      limit,
+      totalPages: Math.ceil(total / safeLimit),
+      page: safePage,
+      limit: safeLimit,
     };
   }
   async update(id: string, updateDto: UpdatePostDto): Promise<Post> {

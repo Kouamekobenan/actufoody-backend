@@ -57,7 +57,7 @@ export class PostController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor('mediaFile'))
+  @UseInterceptors(FileInterceptor('mediaUrl'))
   @ApiOperation({
     summary: 'Créer un nouveau post',
     description:
@@ -353,7 +353,7 @@ export class PostController {
   @ApiBadRequestResponse({ description: 'Paramètres de pagination invalides' })
   @UsePipes(new ValidationPipe({ transform: true }))
   async paginate(@Query() query: PaginateDto) {
-    return await this.findAllPostService.execute(query.page, query.limit);
+    return await this.findAllPostService.execute(query.limit, query.page);
   }
   @Patch(':id')
   @HttpCode(HttpStatus.OK)

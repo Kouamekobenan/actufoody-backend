@@ -13,10 +13,13 @@ export class Post {
     private readonly publishedAt: Date,
     private readonly updatedAt: Date,
     private isPublished: boolean,
-    private category?: Category,
+    private readonly category?: Category,
   ) {}
 
   // Getters
+  getCategory(): Category | undefined {
+    return this.category;
+  }
   getId(): string {
     return this.id;
   }
@@ -189,6 +192,7 @@ export class Post {
       publishedAt: this.publishedAt.toISOString(),
       updatedAt: this.updatedAt.toISOString(),
       isPublished: this.isPublished,
+      category: this.category, // ✅ AJOUTER CETTE LIGNE
     };
   }
 
@@ -205,6 +209,7 @@ export class Post {
       new Date(data.publishedAt),
       new Date(data.updatedAt),
       data.isPublished,
+      data.category,
     );
   }
 

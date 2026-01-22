@@ -19,7 +19,12 @@ async function bootstrap() {
   });
   //activation des corps
   app.enableCors({
-    origin: ['http://localhost:3000', 'https://site-wingi.vercel.app'], // URLs frontend autorisées
+    origin: [
+      'http://localhost:3000',
+      'https://actufoody-backend-production.up.railway.app',
+      'https://www.actufoody.com',
+      'https://actu-fodd-frontend.vercel.app',
+    ], // URLs frontend autorisées
     credentials: true,
   });
   // Global prefix
