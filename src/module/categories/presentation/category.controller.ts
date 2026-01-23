@@ -76,4 +76,9 @@ export class CategoryController {
   ): Promise<Category> {
     return await this.categoryService.update(id, dto);
   }
+  @Get('tendance/cat')
+  @ApiOperation({ summary: 'Récuperez la catégorie tendance' })
+  async findCatTendance() {
+    return await this.categoryService.findCatTendance();
+  }
 }

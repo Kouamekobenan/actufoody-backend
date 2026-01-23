@@ -51,4 +51,15 @@ export class CategoryRepository implements ICategoryRepository {
     });
     return this.mapper.toEntity(categorieUpdate);
   }
+  async findCatTendance(): Promise<Category> {
+    const cat= await this.prisma.category.findFirst({
+      where: { name: "Tendance" },
+      orderBy: { createdAt: 'desc' },
+      include: { posts: true },
+    });
+    if (!cat) {
+      throw new Error('Category not found');
+    };
+    return this.mapper.toEntity(cat);
+  }
 }

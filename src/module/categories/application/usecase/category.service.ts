@@ -83,4 +83,12 @@ export class CategoryService {
       throw new BadRequestException('Failled to updated categorie', error);
     }
   }
+  async findCatTendance(): Promise<Category> {
+    try {
+      return await this.categoryRepository.findCatTendance();
+    } catch (error) {
+      this.logger.log('Failled to retrieve categoires');
+      throw new BadRequestException('Failled to retrieve categories', error);
+    }
+  }
 }
