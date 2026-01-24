@@ -16,7 +16,6 @@ import {
   type FileUploader,
   FileUploaderName,
 } from 'src/common/cloudinary/file-upload.interface';
-import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 
 @Injectable()
 export class CreatePostUseCase {
@@ -117,12 +116,12 @@ export class CreatePostUseCase {
     file: Express.Multer.File,
     mediaType: MediaType,
   ): void {
-    const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+    const MAX_IMAGE_SIZE = 15 * 1024 * 1024; // 10 MB
     const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100 MB
 
     if (mediaType === MediaType.IMAGE && file.size > MAX_IMAGE_SIZE) {
       throw new BadRequestException(
-        "La taille de l'image ne peut pas dépasser 10 MB",
+        "La taille de l'image ne peut pas dépasser 15 MB veillez choisir une autre image",
       );
     }
 

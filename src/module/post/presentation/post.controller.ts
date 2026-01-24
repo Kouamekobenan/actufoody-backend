@@ -286,10 +286,10 @@ export class PostController {
       );
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10 MB
+    const maxSize = 15 * 1024 * 1024; // 10 MB
     if (file.size > maxSize) {
       throw new BadRequestException(
-        `La taille de l'image ne peut pas dépasser 10 MB`,
+        `La taille de l'image ne peut pas dépasser 15 MB veillez choisir une autre image`,
       );
     }
   }
@@ -318,6 +318,8 @@ export class PostController {
       );
     }
   }
+
+  
   @Get(':id')
   @ApiOperation({ summary: 'Find post by ID' })
   @ApiParam({ name: 'id', example: 'Aserfhvneidkzautjeedhdke...' })
