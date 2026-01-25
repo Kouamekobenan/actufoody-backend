@@ -10,4 +10,5 @@ export interface ICategoryRepository {
   findAll(): Promise<Category[]>;
   update(id: string, data:UpdateCategoryDto): Promise<Category>;
   findCatTendance(): Promise<Category>;
+  findName(catName:string): Promise<Category>
 }

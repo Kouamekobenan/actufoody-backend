@@ -8,6 +8,8 @@ import {
   Get,
   Delete,
   Patch,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,6 +17,7 @@ import {
   ApiResponse,
   ApiBody,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators/public.decorator';
 import { CategoryService } from '../application/usecase/category.service';
@@ -80,5 +83,15 @@ export class CategoryController {
   @ApiOperation({ summary: 'Récuperez la catégorie tendance' })
   async findCatTendance() {
     return await this.categoryService.findCatTendance();
+  }
+  @Get('/tendance/by-name') // Changez 'catName' par 'by-name' pour éviter la confusion
+  @ApiOperation({ summary: 'Récupérer la catégorie par son nom' })
+  @ApiQuery({ name: 'name', required: true, type: String })
+  async findName(@Query('name') name: string) {
+    if (!name) {
+      throw new BadRequestException('Le nom de la catégorie est requis');
+    }
+    // On nettoie la chaîne (trim) pour éviter les erreurs d'espaces invisibles
+    return this.categoryService.findName(name.trim());
   }
 }

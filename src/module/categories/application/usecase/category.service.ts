@@ -91,4 +91,11 @@ export class CategoryService {
       throw new BadRequestException('Failled to retrieve categories', error);
     }
   }
+  async findName(catName: string): Promise<Category>{
+    try {
+      return await this.categoryRepository.findName(catName)
+    } catch (error) {
+      throw new BadRequestException("Failled to retrieve cat")
+    }
+  };
 }
