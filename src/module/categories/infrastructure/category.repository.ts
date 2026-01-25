@@ -64,11 +64,18 @@ export class CategoryRepository implements ICategoryRepository {
   }
   async findName(catName: string): Promise<Category> {
     const category = await this.prisma.category.findFirst({
-      where: { name: catName },
-      include: { posts: true },
+      where: {
+        name: {
+          equals: catName,
+          mode: 'insensitive', // <--- C'est le "game changer" ici
+        },
+      },
+      include: {
+        posts: true,
+      },
     });
     if (!category) {
-      throw new Error('Category not found');
+      throw new Error(`Category with name ${catName} not found`);
     }
     return this.mapper.toEntity(category);
   }

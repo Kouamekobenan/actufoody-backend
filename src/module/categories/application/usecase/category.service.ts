@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import {
@@ -93,7 +94,15 @@ export class CategoryService {
   }
   async findName(catName: string): Promise<Category>{
     try {
-      return await this.categoryRepository.findName(catName)
+     const category = await this.categoryRepository.findName(catName);
+     // 2. On vérifie explicitement si l'objet est présent
+     if (!category) {
+       // Utiliser NotFoundException est plus "Pro" (Code 404)
+       throw new NotFoundException(
+         `La catégorie "${catName}" n'a pas été trouvée`,
+       );
+     }
+     return category;
     } catch (error) {
       throw new BadRequestException("Failled to retrieve cat")
     }
