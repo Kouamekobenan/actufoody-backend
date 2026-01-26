@@ -42,6 +42,11 @@ import { PaginateDto } from '../application/dtos/paginate-post.dto';
 import { FindAllPostService } from '../application/service/findAll-post.service';
 import { UpdatePostDto } from '../application/dtos/update-post.dto';
 import { UpdatePostUseCase } from '../application/service/update-post.service';
+import { FindPostByTypeService } from '../application/service/findPost-byType';
+import { query } from 'winston';
+import { MediaTypeParamDto } from '../application/dtos/pagineTypeMedia.dto';
+import { UpdateIsPublishedUseCase } from '../application/service/update-isPublished.usecase';
+import { TogglePostStatusDto } from '../application/dtos/toggleStatus.dto';
 @ApiTags('Posts')
 @Controller('posts')
 export class PostController {
@@ -53,6 +58,8 @@ export class PostController {
     private readonly deletePostUseCase: DeletePostUseCase,
     private readonly findAllPostService: FindAllPostService,
     private readonly updatePostUseCase: UpdatePostUseCase,
+    private readonly findPostByTypeService: FindPostByTypeService,
+    private readonly updateIsPublishedUseCase: UpdateIsPublishedUseCase,
   ) {}
 
   @Post()
@@ -319,7 +326,6 @@ export class PostController {
     }
   }
 
-  
   @Get(':id')
   @ApiOperation({ summary: 'Find post by ID' })
   @ApiParam({ name: 'id', example: 'Aserfhvneidkzautjeedhdke...' })
@@ -449,5 +455,30 @@ export class PostController {
       this.logger.error(`Failed to update post: ${error.message}`, error.stack);
       throw error;
     }
+  }
+  @Get('type/:mediaType') // ✅ Correspond au DTO
+  @ApiOperation({ summary: 'Find posts by Media Type with pagination' })
+  @ApiParam({ name: 'mediaType', enum: MediaType, example: 'VIDEO' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async findPostByType(
+    @Param() params: MediaTypeParamDto,
+    @Query() query: PaginateDto,
+  ) {
+    const mediaType = params.mediaType;
+    const { limit, page } = query;
+    return await this.findPostByTypeService.execute(mediaType, limit, page);
+  }
+  @Patch(':id/publish')
+  @ApiOperation({ summary: 'Met à jour le statut de publication d’un post' })
+  @ApiParam({ name: 'id', example: '550e8400-e29b-41d4-a716-446655440000' })
+  async updateIsPublished(
+    @Param('id') id: string,
+    @Body('isPublished') isPublished: TogglePostStatusDto,
+  ) {
+    return await this.updateIsPublishedUseCase.execute(
+      id,
+      isPublished.isPublished,
+    );
   }
 }

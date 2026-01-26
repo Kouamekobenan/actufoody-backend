@@ -6,6 +6,7 @@ import { CreatePostDto } from '../application/dtos/create-post.dto';
 import { Post } from '../domain/entities/post.entity';
 import { PaginatedResponseRepository } from 'src/common/generique/global.response';
 import { UpdatePostDto } from '../application/dtos/update-post.dto';
+import { MediaType } from '../domain/enums/media.enum';
 
 @Injectable()
 export class PostRepository implements IPostRepository {
@@ -64,5 +65,41 @@ export class PostRepository implements IPostRepository {
       data: dto,
     });
     return this.mapper.toEntity(updatePost);
+  }
+  async findPostsByType(
+    type: MediaType,
+    limit: number,
+    page: number,
+  ): Promise<PaginatedResponseRepository<Post>> {
+    const safeLimit = Math.max(1, limit);
+    const safePage = Math.max(1, page);
+    const skip = (safePage - 1) * safeLimit;
+    const [posts, total] = await Promise.all([
+      this.prisma.post.findMany({
+        skip: skip,
+        take: safeLimit,
+        where: { mediaType: type, isPublished: true },
+        orderBy: { publishedAt: 'desc' },
+        include: { category: true },
+      }),
+      this.prisma.post.count({ where: { mediaType: type, isPublished: true } }),
+    ]);
+    // Mapping vers l'entité de domaine
+    const allPosts = posts.map((post) => this.mapper.toEntity(post));
+    return {
+      data: allPosts,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+      page: safePage,
+      limit: safeLimit,
+    };
+  }
+  async updateIsPublished(postId: string, isPublished: boolean): Promise<Post> {
+    const updatedPost = await this.prisma.post.update({
+      where: { id: postId },
+      data: { isPublished },
+      include: { category: true },
+    });
+    return this.mapper.toEntity(updatedPost);
   }
 }

@@ -12,6 +12,8 @@ import { FindOnePostUseCase } from './application/service/findOne-post.useCase';
 import { DeletePostUseCase } from './application/service/delete-post.service';
 import { FindAllPostService } from './application/service/findAll-post.service';
 import { UpdatePostUseCase } from './application/service/update-post.service';
+import { FindPostByTypeService } from './application/service/findPost-byType';
+import { UpdateIsPublishedUseCase } from './application/service/update-isPublished.usecase';
 
 @Module({
   imports: [CloudinaryModule],
@@ -24,9 +26,10 @@ import { UpdatePostUseCase } from './application/service/update-post.service';
     PrismaService,
     FindAllPostService,
     UpdatePostUseCase,
+    FindPostByTypeService,
+    UpdateIsPublishedUseCase,
     // Mapper
     PostMapper,
-
     // Repository
     {
       provide: PostRepositoryName,
