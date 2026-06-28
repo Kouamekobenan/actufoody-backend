@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
+import * as Joi from 'joi';
 
 // Database
 import { PrismaModule } from './common/database/prisma.module';
@@ -9,17 +11,28 @@ import { AuthModule } from './module/auth/auth.module';
 import { UserModule } from './module/auth/users/user.module';
 import { CategoryModule } from './module/categories/category.module';
 import { PostModule } from './module/post/post.module';
-
-// Auth
-
-// Modules
+import { TagModule } from './module/tag/tag.module';
+import { CommentModule } from './module/comment/comment.module';
+import { LikeModule } from './module/like/like.module';
 
 @Module({
   imports: [
-    // Configuration
+    // Configuration + validation des variables d'environnement au démarrage
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: 'src/.env',
+      validationSchema: Joi.object({
+        DATABASE_URL: Joi.string().required(),
+        PORT: Joi.number().default(3000),
+        JWT_SECRET: Joi.string().min(16).required(),
+        JWT_EXPIRY: Joi.string().default('7d'),
+        CLOUDINARY_CLOUD_NAME: Joi.string().required(),
+        CLOUDINARY_API_KEY: Joi.string().required(),
+        CLOUDINARY_API_SECRET: Joi.string().required(),
+      }),
     }),
+    // Rate limiting : 100 requêtes / minute par IP
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     PrismaModule,
     // Logger
     WinstonModule.forRoot({
@@ -59,6 +72,9 @@ import { PostModule } from './module/post/post.module';
     UserModule,
     CategoryModule,
     PostModule,
+    TagModule,
+    CommentModule,
+    LikeModule,
   ],
 })
 export class AppModule {}

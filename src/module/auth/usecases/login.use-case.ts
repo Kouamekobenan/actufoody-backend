@@ -1,7 +1,6 @@
-import { Injectable, Inject } from '@nestjs/common';
-import {type IUserRepository, UserRepositoryName } from '../users/application/interfaces/user.interface.repository';
+import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
+import { type IUserRepository, UserRepositoryName } from '../users/application/interfaces/user.interface.repository';
 import { AuthService } from '../services/auth.service';
-import { Admin } from '../users/domain/entities/user.entity';
 
 @Injectable()
 export class LoginUserUseCase {
@@ -11,28 +10,23 @@ export class LoginUserUseCase {
     private readonly authservice: AuthService,
   ) {}
 
-  async execute(
-    email: string,
-    password: string,
-  ): Promise<{ user: Admin; token: {} }> {
-    const isUser = await this.userRepository.findByEmail(email);
-    if (!isUser) {
-      throw new Error(`ce email:${email} est incorrect`);
+  async execute(email: string, password: string) {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
-    const isComparePassword = await this.authservice.comparePassword(
-      password,
-      isUser.getPassword(),
-    );
-    if (!isComparePassword) {
-      throw new Error(`ce password:${password} est incorrect`);
+    const isValid = await this.authservice.comparePassword(password, user.getPassword());
+    if (!isValid) {
+      throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
-    const generateToken = await this.authservice.generateToken({
-      userId: isUser.getId(),
-      email: isUser.getEmail(),
+    const tokens = await this.authservice.generateTokens({
+      userId: user.getId(),
+      email: user.getEmail(),
+      role: user.getRole(),
     });
 
-    return { user: isUser, token: generateToken };
+    return { user, ...tokens };
   }
 }

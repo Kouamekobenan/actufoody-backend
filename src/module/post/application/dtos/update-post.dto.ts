@@ -78,4 +78,16 @@ export class UpdatePostDto {
   @IsNotEmpty({ message: 'Le statut de publication est obligatoire' })
   @IsOptional()
   isPublished?: boolean;
+
+  @ApiPropertyOptional({
+    description: "URL de la source originale de l'article",
+    example: 'https://www.lejournal.ci/article/123',
+    nullable: true,
+  })
+  @IsUrl(
+    { protocols: ['http', 'https'], require_protocol: true },
+    { message: "L'URL source doit être une URL valide (http ou https)" },
+  )
+  @IsOptional()
+  sourceUrl?: string;
 }

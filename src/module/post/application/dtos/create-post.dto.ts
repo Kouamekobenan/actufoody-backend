@@ -79,14 +79,19 @@ export class CreatePostDto {
   )
   categoryId?: string;
 
-  @ApiProperty({
-    description: "ID de l'administrateur créant le post",
-    example: '987fcdeb-51a2-43f7-b789-123456789abc',
-    format: 'uuid',
+  @ApiPropertyOptional({
+    description: "URL de la source originale de l'article",
+    example: 'https://www.lejournal.ci/article/123',
+    nullable: true,
   })
-  @IsNotEmpty({ message: "L'ID de l'administrateur est obligatoire" })
-  // @IsUUID('4', { message: "L'ID de l'administrateur doit être un UUID valide" })
-  adminId: string;
+  @IsUrl(
+    { protocols: ['http', 'https'], require_protocol: true },
+    { message: "L'URL source doit être une URL valide (http ou https)" },
+  )
+  @IsOptional()
+  sourceUrl?: string;
+
+  adminId?: string;
 
   @ApiProperty({
     description: 'Indique si le post est publié ou en brouillon',

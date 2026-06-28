@@ -35,13 +35,14 @@ export class RegisterUserUseCase {
       console.error('une erreur lors de la creation de user:', error.message);
     }
     // generate token
-    const token = await this.authservice.generateToken({
+    const tokens = await this.authservice.generateTokens({
       userId: newUser.getId(),
       email: newUser.getEmail(),
+      role: newUser.getRole(),
     });
     return {
-      message: 'User create succeffuly',
-      token: token,
+      message: 'Compte créé avec succès',
+      ...tokens,
     };
   }
 }

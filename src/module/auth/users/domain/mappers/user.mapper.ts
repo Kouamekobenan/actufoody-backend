@@ -1,6 +1,7 @@
 import { UserDto } from '../../application/dtos/user.dto';
-import {  Admin as UserPrisma } from '@prisma/client';
+import { Admin as UserPrisma } from '@prisma/client';
 import { Admin } from '../entities/user.entity';
+
 export class UserMapper {
   toPersitence(data: UserDto): any {
     return {
@@ -9,6 +10,7 @@ export class UserMapper {
       name: data.name,
     };
   }
+
   toAplication(Userdata: UserPrisma): Admin {
     return new Admin(
       Userdata.id,
@@ -17,12 +19,15 @@ export class UserMapper {
       Userdata.password,
       Userdata.createdAt,
       Userdata.updatedAt,
+      Userdata.role,
     );
   }
+
   toUpdateUser(userData: UserDto): any {
     return {
-      email: userData.name,
-      password: userData.password
+      email: userData.email,
+      password: userData.password,
+      name: userData.name,
     };
   }
 }

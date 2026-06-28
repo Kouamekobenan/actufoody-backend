@@ -14,12 +14,14 @@ import { FindAllPostService } from './application/service/findAll-post.service';
 import { UpdatePostUseCase } from './application/service/update-post.service';
 import { FindPostByTypeService } from './application/service/findPost-byType';
 import { UpdateIsPublishedUseCase } from './application/service/update-isPublished.usecase';
+import { SearchPostService } from './application/service/search-post.service';
+import { TrendingPostService } from './application/service/trending-post.service';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 
 @Module({
   imports: [CloudinaryModule],
   controllers: [PostController],
   providers: [
-    // Use Case
     CreatePostUseCase,
     FindOnePostUseCase,
     DeletePostUseCase,
@@ -28,18 +30,12 @@ import { UpdateIsPublishedUseCase } from './application/service/update-isPublish
     UpdatePostUseCase,
     FindPostByTypeService,
     UpdateIsPublishedUseCase,
-    // Mapper
+    SearchPostService,
+    TrendingPostService,
     PostMapper,
-    // Repository
-    {
-      provide: PostRepositoryName,
-      useClass: PostRepository,
-    },
-
-    {
-      provide: FileUploaderName,
-      useClass: CloudinaryService,
-    },
+    RolesGuard,
+    { provide: PostRepositoryName, useClass: PostRepository },
+    { provide: FileUploaderName, useClass: CloudinaryService },
   ],
 })
 export class PostModule {}

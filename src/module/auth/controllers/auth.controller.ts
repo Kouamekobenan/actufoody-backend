@@ -3,83 +3,132 @@ import {
   Post,
   Body,
   Get,
-  Req,
+  Patch,
+  HttpCode,
+  HttpStatus,
   UnauthorizedException,
-  Inject,
   UseGuards,
 } from '@nestjs/common';
-import { RegisterUserUseCase } from '../usecases/register.user.use-case';
-import { LoginUserUseCase } from '../usecases/login.use-case';
-import { UserDto } from '../users/application/dtos/user.dto';
-import { LoginDto } from '../users/application/dtos/login-dto.dto';
-import { Public } from 'src/common/decorators/public.decorator';
 import {
   ApiOperation,
   ApiResponse,
   ApiBody,
   ApiBearerAuth,
+  ApiTags,
 } from '@nestjs/swagger';
-import { AuthMeUseCase } from '../usecases/authme.usecase';
-import { Admin } from '../users/domain/entities/user.entity';
-import { Logger } from 'winston';
-import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import { Public } from 'src/common/decorators/public.decorator';
+import { CurrentUser } from 'src/common/curent-user.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RegisterUserUseCase } from '../usecases/register.user.use-case';
+import { LoginUserUseCase } from '../usecases/login.use-case';
+import { AuthMeUseCase } from '../usecases/authme.usecase';
+import { RefreshTokenUseCase } from '../usecases/refresh-token.usecase';
+import { LogoutUseCase } from '../usecases/logout.usecase';
+import { UpdateProfileUseCase } from '../usecases/update-profile.usecase';
+import { ChangePasswordUseCase } from '../usecases/change-password.usecase';
+import { UserDto } from '../users/application/dtos/user.dto';
+import { LoginDto } from '../users/application/dtos/login-dto.dto';
+import { RefreshTokenDto } from '../users/application/dtos/refresh-token.dto';
+import { UpdateProfileDto } from '../users/application/dtos/update-profile.dto';
+import { ChangePasswordDto } from '../users/application/dtos/change-password.dto';
+
+@ApiTags('Auth')
+@ApiBearerAuth('auth-token')
+@UseGuards(JwtAuthGuard)
 @Controller('auth')
-@ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard) // ✅ Guards au niveau controller
 export class AuthController {
   constructor(
-    @Inject(WINSTON_MODULE_PROVIDER) private readonly logger: Logger,
-
     private readonly registerUseCase: RegisterUserUseCase,
     private readonly loginUserUseCase: LoginUserUseCase,
     private readonly authMeUseCase: AuthMeUseCase,
+    private readonly refreshTokenUseCase: RefreshTokenUseCase,
+    private readonly logoutUseCase: LogoutUseCase,
+    private readonly updateProfileUseCase: UpdateProfileUseCase,
+    private readonly changePasswordUseCase: ChangePasswordUseCase,
   ) {}
 
-  @Get('me')
-  @ApiOperation({ summary: 'Récupérer le profil utilisateur connecté' })
-  @ApiResponse({
-    status: 200,
-    description: 'Informations utilisateur récupérées',
-    type: Admin,
-  })
-  @ApiResponse({ status: 401, description: 'Non authentifié' })
-  async me(@Req() req: any) {
-    // ✅ Vérification de sécurité
-    if (!req.user.userId) {
-      this.logger.error('req.user is undefined or missing userId');
-      this.logger.error('req.user:', req.user);
-      throw new UnauthorizedException(
-        'Token invalide ou utilisateur non trouvé',
-      );
-    }
-    return await this.authMeUseCase.execute(req.user.userId);
-  }
+  // ─── Routes publiques ──────────────────────────────────────────────────────
+
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Créer un utilisateur' })
-  @ApiResponse({
-    status: 200,
-    description: 'Utilisateur est crée, retourne un token',
-  })
-  @ApiResponse({ status: 401, description: 'Identifiants invalides' })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Créer un nouveau compte' })
   @ApiBody({ type: UserDto })
+  @ApiResponse({ status: 201, description: 'Compte créé — retourne access_token + refresh_token' })
+  @ApiResponse({ status: 409, description: 'Email déjà utilisé' })
   async register(@Body() userData: UserDto) {
     return this.registerUseCase.execute(userData);
   }
+
   @Public()
   @Post('login')
-  @ApiOperation({ summary: "Connexion d'un utilisateur" })
-  @ApiResponse({
-    status: 200,
-    description: 'Connexion réussie, retourne un token',
-  })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Se connecter' })
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({ status: 200, description: 'Connexion réussie — retourne access_token + refresh_token' })
   @ApiResponse({ status: 401, description: 'Identifiants invalides' })
-  @ApiBody({ type: LoginDto }) // Permet de documenter le body attendu
   async login(@Body() loginDto: LoginDto) {
-    return await this.loginUserUseCase.execute(
-      loginDto.email,
-      loginDto.password,
-    );
+    return this.loginUserUseCase.execute(loginDto.email, loginDto.password);
+  }
+
+  @Public()
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Renouveler le access token via le refresh token' })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiResponse({ status: 200, description: 'Nouveaux tokens générés' })
+  @ApiResponse({ status: 401, description: 'Refresh token invalide ou expiré' })
+  async refresh(@Body() dto: RefreshTokenDto) {
+    return this.refreshTokenUseCase.execute(dto.refreshToken);
+  }
+
+  // ─── Routes protégées (JWT requis) ────────────────────────────────────────
+
+  @Get('me')
+  @ApiOperation({ summary: 'Récupérer son profil' })
+  @ApiResponse({ status: 200, description: 'Profil utilisateur' })
+  @ApiResponse({ status: 401, description: 'Non authentifié' })
+  async me(@CurrentUser() user: { userId: string }) {
+    if (!user?.userId) {
+      throw new UnauthorizedException('Token invalide');
+    }
+    return this.authMeUseCase.execute(user.userId);
+  }
+
+  @Patch('me')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Mettre à jour son profil (nom, email)' })
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiResponse({ status: 200, description: 'Profil mis à jour' })
+  @ApiResponse({ status: 409, description: 'Email déjà utilisé' })
+  async updateMe(
+    @CurrentUser() user: { userId: string },
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.updateProfileUseCase.execute(user.userId, dto);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Changer son mot de passe' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({ status: 200, description: 'Mot de passe changé — toutes les sessions révoquées' })
+  @ApiResponse({ status: 401, description: 'Mot de passe actuel incorrect' })
+  async changePassword(
+    @CurrentUser() user: { userId: string },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    await this.changePasswordUseCase.execute(user.userId, dto);
+    return { message: 'Mot de passe modifié avec succès. Veuillez vous reconnecter.' };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Se déconnecter (révoque le refresh token)' })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiResponse({ status: 200, description: 'Déconnexion réussie' })
+  async logout(@Body() dto: RefreshTokenDto) {
+    await this.logoutUseCase.execute(dto.refreshToken);
+    return { message: 'Déconnexion réussie' };
   }
 }

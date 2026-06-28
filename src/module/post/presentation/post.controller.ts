@@ -17,6 +17,7 @@ import {
   UsePipes,
   Query,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -29,10 +30,16 @@ import {
   ApiParam,
   ApiBadRequestResponse,
   ApiQuery,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Public } from 'src/common/decorators/public.decorator';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { CurrentUser } from 'src/common/curent-user.decorator';
+import { AdminRole } from '@prisma/client';
 import { CreatePostDto } from '../application/dtos/create-post.dto';
 import { MediaType } from '../domain/enums/media.enum';
-// Import dynamique pour éviter la dépendance circulaire
 import { CustomFileTypeValidator } from 'src/common/custom-file-type.validator';
 import { CreatePostUseCase } from '../application/service/post.service';
 import { FindOnePostUseCase } from '../application/service/findOne-post.useCase';
@@ -43,11 +50,15 @@ import { FindAllPostService } from '../application/service/findAll-post.service'
 import { UpdatePostDto } from '../application/dtos/update-post.dto';
 import { UpdatePostUseCase } from '../application/service/update-post.service';
 import { FindPostByTypeService } from '../application/service/findPost-byType';
-import { query } from 'winston';
 import { MediaTypeParamDto } from '../application/dtos/pagineTypeMedia.dto';
 import { UpdateIsPublishedUseCase } from '../application/service/update-isPublished.usecase';
 import { TogglePostStatusDto } from '../application/dtos/toggleStatus.dto';
+import { SearchPostService } from '../application/service/search-post.service';
+import { TrendingPostService } from '../application/service/trending-post.service';
+
 @ApiTags('Posts')
+@ApiBearerAuth('auth-token')
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('posts')
 export class PostController {
   private readonly logger = new Logger(PostController.name);
@@ -60,9 +71,12 @@ export class PostController {
     private readonly updatePostUseCase: UpdatePostUseCase,
     private readonly findPostByTypeService: FindPostByTypeService,
     private readonly updateIsPublishedUseCase: UpdateIsPublishedUseCase,
+    private readonly searchPostService: SearchPostService,
+    private readonly trendingPostService: TrendingPostService,
   ) {}
 
   @Post()
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('mediaUrl'))
   @ApiOperation({
@@ -110,12 +124,6 @@ export class PostController {
           description: 'ID de la catégorie (optionnel)',
           example: '123e4567-e89b-12d3-a456-426614174000',
           nullable: true,
-        },
-        adminId: {
-          type: 'string',
-          format: 'uuid',
-          description: "ID de l'administrateur créant le post",
-          example: '987fcdeb-51a2-43f7-b789-123456789abc',
         },
         isPublished: {
           type: 'boolean',
@@ -204,12 +212,13 @@ export class PostController {
     },
   })
   async createPost(
+    @CurrentUser() currentUser: { userId: string; email: string },
     @Body() createPostDto: CreatePostDto,
     @UploadedFile(
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({
-            maxSize: 100 * 1024 * 1024, // 100 MB max
+            maxSize: 100 * 1024 * 1024,
             message: 'Le fichier ne peut pas dépasser 100 MB',
           }),
           new CustomFileTypeValidator({}),
@@ -220,14 +229,15 @@ export class PostController {
     file?: Express.Multer.File,
   ) {
     try {
+      // Injecter l'adminId depuis le token JWT
+      createPostDto.adminId = currentUser.userId;
+
       this.logger.log(
         `Creating post - Title: "${createPostDto.title}", MediaType: ${createPostDto.mediaType}, HasFile: ${!!file}`,
       );
 
-      // Validation supplémentaire de la cohérence
       this.validateFileRequirement(createPostDto.mediaType, file);
 
-      // Exécuter le use case
       const post = await this.createPostUseCase.execute(createPostDto, file);
 
       this.logger.log(`Post created successfully - ID: ${post.getId()}`);
@@ -326,21 +336,47 @@ export class PostController {
     }
   }
 
+  @Public()
+  @Get('search')
+  @ApiOperation({ summary: 'Recherche full-text dans les posts (titre + contenu)' })
+  @ApiQuery({ name: 'q', required: true, description: 'Terme de recherche (min 2 caractères)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async search(
+    @Query('q') q: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+  ) {
+    return this.searchPostService.execute(q, +limit, +page);
+  }
+
+  @Public()
+  @Get('trending')
+  @ApiOperation({ summary: 'Posts les plus vus (trending)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre de posts (défaut: 10)' })
+  async trending(@Query('limit') limit = 10) {
+    return this.trendingPostService.execute(+limit);
+  }
+
+  @Public()
   @Get(':id')
-  @ApiOperation({ summary: 'Find post by ID' })
-  @ApiParam({ name: 'id', example: 'Aserfhvneidkzautjeedhdke...' })
+  @ApiOperation({ summary: 'Récupérer un post par son ID' })
+  @ApiParam({ name: 'id', example: 'clx123abc' })
   async findOne(@Param('id') id: string): Promise<posts> {
     return await this.findOnePostUsecas.execute(id);
   }
+
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete post by ID' })
-  @ApiParam({ name: 'id', example: 'sdderfffffgghhjjkgvnjg' })
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
+  @ApiOperation({ summary: 'Supprimer un post (auth requis)' })
+  @ApiParam({ name: 'id', example: 'clx123abc' })
   async deletePost(@Param('id') id: string) {
     return await this.deletePostUseCase.execute(id);
   }
 
+  @Public()
   @Get()
-  @ApiOperation({ summary: 'Lister les pots avec pagination' })
+  @ApiOperation({ summary: 'Lister les posts avec pagination' })
   @ApiQuery({
     name: 'page',
     required: true,
@@ -351,7 +387,7 @@ export class PostController {
     name: 'limit',
     required: true,
     type: Number,
-    description: 'Nombre d’éléments par page',
+    description: "Nombre d'elements par page",
   })
   @ApiResponse({
     status: 200,
@@ -364,6 +400,7 @@ export class PostController {
     return await this.findAllPostService.execute(query.limit, query.page);
   }
   @Patch(':id')
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('mediaFile'))
   @ApiOperation({
@@ -456,8 +493,9 @@ export class PostController {
       throw error;
     }
   }
-  @Get('type/:mediaType') // ✅ Correspond au DTO
-  @ApiOperation({ summary: 'Find posts by Media Type with pagination' })
+  @Public()
+  @Get('type/:mediaType')
+  @ApiOperation({ summary: 'Récupérer les posts par type de média' })
   @ApiParam({ name: 'mediaType', enum: MediaType, example: 'VIDEO' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -470,15 +508,14 @@ export class PostController {
     return await this.findPostByTypeService.execute(mediaType, limit, page);
   }
   @Patch(':id/publish')
-  @ApiOperation({ summary: 'Met à jour le statut de publication d’un post' })
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.EDITOR)
+  @ApiOperation({ summary: "Changer le statut de publication d'un post (auth requis)" })
   @ApiParam({ name: 'id', example: '550e8400-e29b-41d4-a716-446655440000' })
   async updateIsPublished(
     @Param('id') id: string,
     @Body('isPublished') isPublished: TogglePostStatusDto,
   ) {
-    return await this.updateIsPublishedUseCase.execute(
-      id,
-      isPublished.isPublished,
-    );
+    return await this.updateIsPublishedUseCase.execute(id, isPublished.isPublished);
   }
+
 }

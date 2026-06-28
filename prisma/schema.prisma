@@ -7,13 +7,34 @@ datasource db {
 }
 
 model Admin {
+  id            String         @id @default(cuid())
+  name          String?
+  email         String         @unique
+  password      String
+  role          AdminRole      @default(EDITOR)
+  deletedAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  posts         Post[]         @relation("AdminPosts")
+  refreshTokens RefreshToken[]
+  comments      Comment[]      @relation("AdminComments")
+  likes         Like[]         @relation("AdminLikes")
+}
+
+model RefreshToken {
   id        String   @id @default(cuid())
-  name      String?
-  email     String   @unique
-  password  String
+  token     String   @unique
+  adminId   String
+  expiresAt DateTime
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  posts     Post[]   @relation("AdminPosts")
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  EDITOR
 }
 
 model Category {
@@ -33,13 +54,59 @@ model Post {
   mediaUrl    String?
   categoryId  String?
   adminId     String
+  sourceUrl   String?
+  views       Int       @default(0)
   publishedAt DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   isPublished Boolean   @default(true)
   admin       Admin     @relation("AdminPosts", fields: [adminId], references: [id], onDelete: Cascade)
   category    Category? @relation("CategoryPosts", fields: [categoryId], references: [id])
+  tags        PostTag[]
+  comments    Comment[]
+  likes       Like[]
 
   @@index([isPublished, publishedAt])
+}
+
+model Tag {
+  id    String    @id @default(cuid())
+  name  String    @unique
+  posts PostTag[]
+}
+
+model PostTag {
+  postId String
+  tagId  String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  postId    String
+  adminId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  admin     Admin    @relation("AdminComments", fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  adminId   String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  admin     Admin    @relation("AdminLikes", fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, adminId])
+  @@index([postId])
 }
 
 enum MediaType {

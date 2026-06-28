@@ -13,7 +13,12 @@ export class Post {
     private readonly publishedAt: Date,
     private readonly updatedAt: Date,
     private isPublished: boolean,
+    private readonly views: number = 0,
     private readonly category?: Category,
+    private readonly tags: string[] = [],
+    private readonly likesCount: number = 0,
+    private readonly commentsCount: number = 0,
+    private readonly sourceUrl: string | null = null,
   ) {}
 
   // Getters
@@ -180,6 +185,12 @@ export class Post {
   }
 
   // Méthode pour obtenir une représentation JSON
+  getViews(): number { return this.views; }
+  getTags(): string[] { return this.tags; }
+  getLikesCount(): number { return this.likesCount; }
+  getCommentsCount(): number { return this.commentsCount; }
+  getSourceUrl(): string | null { return this.sourceUrl; }
+
   toJSON(): Record<string, any> {
     return {
       id: this.id,
@@ -192,7 +203,12 @@ export class Post {
       publishedAt: this.publishedAt.toISOString(),
       updatedAt: this.updatedAt.toISOString(),
       isPublished: this.isPublished,
-      category: this.category, // ✅ AJOUTER CETTE LIGNE
+      views: this.views,
+      tags: this.tags,
+      likesCount: this.likesCount,
+      commentsCount: this.commentsCount,
+      sourceUrl: this.sourceUrl,
+      category: this.category,
     };
   }
 

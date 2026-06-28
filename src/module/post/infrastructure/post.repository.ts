@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { IPostRepository } from '../domain/interface/post.repository';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { PostMapper } from '../domain/mappers/post.mapper';
@@ -8,98 +8,133 @@ import { PaginatedResponseRepository } from 'src/common/generique/global.respons
 import { UpdatePostDto } from '../application/dtos/update-post.dto';
 import { MediaType } from '../domain/enums/media.enum';
 
+const POST_INCLUDE = {
+  category: true,
+  tags: { include: { tag: true } },
+  _count: { select: { likes: true, comments: true } },
+};
+
 @Injectable()
 export class PostRepository implements IPostRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mapper: PostMapper,
   ) {}
+
   async create(dto: CreatePostDto): Promise<Post> {
-    const post = this.mapper.toApplication(dto);
-    const newPost = await this.prisma.post.create({ data: post });
-    return this.mapper.toEntity(newPost);
-  }
-  async findOne(id: string): Promise<Post> {
-    const post = await this.prisma.post.findUnique({
-      where: { id },
-      include: { category: true },
-    });
-    if (!post) {
-      throw new BadRequestException('Error ID to post');
-    }
+    const data = this.mapper.toApplication(dto);
+    const post = await this.prisma.post.create({ data, include: POST_INCLUDE });
     return this.mapper.toEntity(post);
   }
+
+  async findOne(id: string): Promise<Post> {
+    const post = await this.prisma.post.findUnique({ where: { id }, include: POST_INCLUDE });
+    if (!post) throw new NotFoundException('Post introuvable');
+
+    // Incrémenter les vues en arrière-plan (fire-and-forget)
+    this.prisma.post.update({ where: { id }, data: { views: { increment: 1 } } }).catch(() => {});
+
+    return this.mapper.toEntity(post);
+  }
+
   async delete(id: string): Promise<void> {
     await this.prisma.post.delete({ where: { id } });
   }
-  async findAll(
-    limit: number,
-    page: number,
-  ): Promise<PaginatedResponseRepository<Post>> {
+
+  async findAll(limit: number, page: number): Promise<PaginatedResponseRepository<Post>> {
     const safeLimit = Math.max(1, limit);
     const safePage = Math.max(1, page);
     const skip = (safePage - 1) * safeLimit;
+
     const [posts, total] = await Promise.all([
       this.prisma.post.findMany({
-        skip: skip,
+        where: { isPublished: true },
+        skip,
         take: safeLimit,
         orderBy: { publishedAt: 'desc' },
-        include: { category: true },
+        include: POST_INCLUDE,
       }),
-      this.prisma.post.count(),
+      this.prisma.post.count({ where: { isPublished: true } }),
     ]);
-    // Mapping vers l'entité de domaine
-    const allPosts = posts.map((post) => this.mapper.toEntity(post));
+
     return {
-      data: allPosts,
+      data: posts.map((p) => this.mapper.toEntity(p)),
       total,
       totalPages: Math.ceil(total / safeLimit),
       page: safePage,
       limit: safeLimit,
     };
   }
+
   async update(id: string, updateDto: UpdatePostDto): Promise<Post> {
-    const dto = this.mapper.toUpdate(updateDto);
-    const updatePost = await this.prisma.post.update({
-      where: { id },
-      data: dto,
-    });
-    return this.mapper.toEntity(updatePost);
+    const data = this.mapper.toUpdate(updateDto);
+    const post = await this.prisma.post.update({ where: { id }, data, include: POST_INCLUDE });
+    return this.mapper.toEntity(post);
   }
-  async findPostsByType(
-    type: MediaType,
-    limit: number,
-    page: number,
-  ): Promise<PaginatedResponseRepository<Post>> {
+
+  async findPostsByType(type: MediaType, limit: number, page: number): Promise<PaginatedResponseRepository<Post>> {
     const safeLimit = Math.max(1, limit);
     const safePage = Math.max(1, page);
     const skip = (safePage - 1) * safeLimit;
+
+    const where = { mediaType: type, isPublished: true };
     const [posts, total] = await Promise.all([
-      this.prisma.post.findMany({
-        skip: skip,
-        take: safeLimit,
-        where: { mediaType: type, isPublished: true },
-        orderBy: { publishedAt: 'desc' },
-        include: { category: true },
-      }),
-      this.prisma.post.count({ where: { mediaType: type, isPublished: true } }),
+      this.prisma.post.findMany({ skip, take: safeLimit, where, orderBy: { publishedAt: 'desc' }, include: POST_INCLUDE }),
+      this.prisma.post.count({ where }),
     ]);
-    // Mapping vers l'entité de domaine
-    const allPosts = posts.map((post) => this.mapper.toEntity(post));
+
     return {
-      data: allPosts,
+      data: posts.map((p) => this.mapper.toEntity(p)),
       total,
       totalPages: Math.ceil(total / safeLimit),
       page: safePage,
       limit: safeLimit,
     };
   }
+
   async updateIsPublished(postId: string, isPublished: boolean): Promise<Post> {
-    const updatedPost = await this.prisma.post.update({
+    const post = await this.prisma.post.update({
       where: { id: postId },
       data: { isPublished },
-      include: { category: true },
+      include: POST_INCLUDE,
     });
-    return this.mapper.toEntity(updatedPost);
+    return this.mapper.toEntity(post);
+  }
+
+  async search(query: string, limit: number, page: number): Promise<PaginatedResponseRepository<Post>> {
+    const safeLimit = Math.max(1, limit);
+    const safePage = Math.max(1, page);
+    const skip = (safePage - 1) * safeLimit;
+
+    const where = {
+      isPublished: true,
+      OR: [
+        { title: { contains: query, mode: 'insensitive' as const } },
+        { content: { contains: query, mode: 'insensitive' as const } },
+      ],
+    };
+
+    const [posts, total] = await Promise.all([
+      this.prisma.post.findMany({ where, skip, take: safeLimit, orderBy: { publishedAt: 'desc' }, include: POST_INCLUDE }),
+      this.prisma.post.count({ where }),
+    ]);
+
+    return {
+      data: posts.map((p) => this.mapper.toEntity(p)),
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+      page: safePage,
+      limit: safeLimit,
+    };
+  }
+
+  async findTrending(limit = 10): Promise<Post[]> {
+    const posts = await this.prisma.post.findMany({
+      where: { isPublished: true },
+      orderBy: [{ views: 'desc' }, { publishedAt: 'desc' }],
+      take: limit,
+      include: POST_INCLUDE,
+    });
+    return posts.map((p) => this.mapper.toEntity(p));
   }
 }

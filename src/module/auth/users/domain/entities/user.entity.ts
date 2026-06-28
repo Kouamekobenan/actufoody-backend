@@ -1,3 +1,4 @@
+import { AdminRole } from '@prisma/client';
 
 export class Admin {
   constructor(
@@ -7,10 +8,10 @@ export class Admin {
     private password: string,
     private createdAt: Date,
     private updatedAt: Date,
+    private role: AdminRole = AdminRole.EDITOR,
     private posts?: any | null,
   ) {}
 
-  // setter
   getId(): string {
     return this.id;
   }
@@ -22,7 +23,12 @@ export class Admin {
   getPassword(): string {
     return this.password;
   }
+
   getName(): string | null {
     return this.name;
+  }
+
+  getRole(): AdminRole {
+    return this.role;
   }
 }
