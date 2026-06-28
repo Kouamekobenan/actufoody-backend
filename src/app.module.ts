@@ -14,6 +14,7 @@ import { PostModule } from './module/post/post.module';
 import { TagModule } from './module/tag/tag.module';
 import { CommentModule } from './module/comment/comment.module';
 import { LikeModule } from './module/like/like.module';
+import { StatsModule } from './module/stats/stats.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { LikeModule } from './module/like/like.module';
     TagModule,
     CommentModule,
     LikeModule,
+    StatsModule,
   ],
 })
 export class AppModule {}
